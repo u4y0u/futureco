@@ -57,6 +57,7 @@ export default function GareInfo({ clickedGare }) {
 					2
 				)}?date=${date}`}
 			/>
+			<p>Identifiant UIC : {clickedGare.uic}</p>
 		</div>
 	)
 }

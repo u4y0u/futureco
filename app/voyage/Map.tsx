@@ -32,6 +32,7 @@ import { MapContainer, MapHeader } from './UI'
 import { decodePlace, encodePlace } from './utils'
 import useMeasureDistance from './useMeasureDistance'
 import { MapButton, MapButtons } from '@/components/voyage/MapButtons'
+import useCars from './useCars'
 
 const defaultCenter =
 	// Saint Malo [-1.9890417068124002, 48.66284934737089]
@@ -102,6 +103,7 @@ export default function Map({ searchParams }) {
 	const [features, setFeatures] = useState([])
 
 	const distance = useMeasureDistance(map, distanceMode)
+	const cars = useCars(map, clickedGare)
 
 	useEffect(() => {
 		if (!map || !category) return
