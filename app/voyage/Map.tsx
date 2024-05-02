@@ -6,42 +6,53 @@ import { createPolygon, createSearchBBox } from './createSearchPolygon'
 import { sortGares } from './gares'
 
 import useSetSearchParams from '@/components/useSetSearchParams'
-import { getCategory } from '@/components/voyage/categories'
-import { extractOsmFeature } from '@/components/voyage/fetchPhoton'
 import MapButtons from '@/components/voyage/MapButtons'
+import { getCategory } from '@/components/voyage/categories'
 import { goodIconSize } from '@/components/voyage/mapUtils'
-import { centerOfMass } from '@turf/turf'
+import ModalSwitch from './ModalSwitch'
+import { MapContainer, MapHeader } from './UI'
+import { useZoneImages } from './ZoneImages'
 import useAddMap, { defaultZoom } from './effects/useAddMap'
 import useDrawQuickSearchFeatures from './effects/useDrawQuickSearchFeatures'
 import useImageSearch from './effects/useImageSearch'
 import useItinerary from './itinerary/useItinerary'
 import useItineraryFromUrl from './itinerary/useItineraryFromUrl'
-import ModalSwitch from './ModalSwitch'
-import { disambiguateWayRelation, osmRequest } from './osmRequest'
+import { disambiguateWayRelation } from './osmRequest'
 import { styles } from './styles/styles'
-import { MapContainer, MapHeader } from './UI'
 import useHoverOnMapFeatures from './useHoverOnMapFeatures'
 import useTerrainControl from './useTerrainControl'
-import { decodePlace, encodePlace } from './utils'
-import { useZoneImages } from './ZoneImages'
+import { encodePlace, fitBoundsConsideringModal } from './utils'
 
+import { replaceArrayIndex } from '@/components/utils/utils'
+import CenteredCross from './CenteredCross'
+import MapComponents from './MapComponents'
+import { buildAllezPart } from './SetDestination'
 import { clickableClasses } from './clickableLayers'
-import useDrawTransport from './effects/useDrawTransport'
-import useTransportStopData from './transport/useTransportStopData'
 import useDrawSearchResults from './effects/useDrawSearchResults'
+import useDrawTransport from './effects/useDrawTransport'
+import useDrawTransportsMap from './effects/useDrawTransportsMap'
+import useOsmRequest from './effects/useOsmRequest'
+import useOverpassRequest from './effects/useOverpassRequest'
 import useRightClick from './effects/useRightClick'
 import useSearchLocalTransit from './effects/useSearchLocalTransit'
-import CenteredCross from './CenteredCross'
+import useTransportStopData from './transport/useTransportStopData'
+import FocusedImage from './FocusedImage'
+import getBbox from '@turf/bbox'
+import { isMonday } from 'date-fns'
+import { useMediaQuery } from 'usehooks-ts'
 
 export const defaultState = {
 	depuis: { inputValue: null, choice: false },
 	vers: { inputValue: null, choice: false },
 	validated: false,
 }
+
 export default function Map({ searchParams }) {
 	const mapContainerRef = useRef(null)
+	const isMobile = useMediaQuery('(max-width: 800px)')
 	const [zoom, setZoom] = useState(defaultZoom)
 	const [bbox, setBbox] = useState(null)
+	const [focusedImage, focusImage] = useState(null)
 	const center = useMemo(
 		() =>
 			bbox && [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2],
@@ -53,31 +64,32 @@ export default function Map({ searchParams }) {
 		style = styles[styleKey],
 		styleUrl = styles[styleKey].url
 
-	// This is a generic name herited from the /ferry and /avion pages, state means the from and to box's states.
-	// From is not currently used but will be.
-	const [state, setState] = useState(defaultState)
-	console.log('bleu state', state)
-	const map = useAddMap(styleUrl, setZoom, setBbox, mapContainerRef, setState)
+	// In this query param is stored an array of points. If only one, it's just a
+	// place focused on.
+	const [state, setState] = useState([])
 
-	const resetInput = (which) =>
-		setState({ ...state, [which]: defaultState[which] })
+	const allez = useMemo(() => {
+		return searchParams.allez ? searchParams.allez.split('->') : []
+	}, [searchParams.allez])
 
-	const [osmFeature, setOsmFeature] = useState(null)
+	const [geolocation, setGeolocation] = useState(null)
+	const [map, triggerGeolocation] = useAddMap(
+		styleUrl,
+		setZoom,
+		setBbox,
+		mapContainerRef,
+		setGeolocation
+	)
+
 	const [latLngClicked, setLatLngClicked] = useState(null)
 	const [bikeRouteProfile, setBikeRouteProfile] = useState('safety')
 	const [distanceMode, setDistanceMode] = useState(false)
 	const [itineraryMode, setItineraryMode] = useState(false)
 	const [styleChooser, setStyleChooser] = useState(false)
 
-	const allez = searchParams.allez
 	useItineraryFromUrl(allez, setItineraryMode, map)
 
 	const setSearchParams = useSetSearchParams()
-
-	const place = searchParams.lieu,
-		[featureType, featureId] = place
-			? decodePlace(place)
-			: extractOsmFeature(state.vers.choice)
 
 	const category = getCategory(searchParams)
 
@@ -88,7 +100,13 @@ export default function Map({ searchParams }) {
 		setLatLngClicked,
 	})
 
-	useImageSearch(map, zoom, bbox, searchParams.photos === 'oui')
+	const bboxImages = useImageSearch(
+		map,
+		zoom,
+		bbox,
+		searchParams.photos === 'oui',
+		focusImage
+	)
 
 	if (process.env.NEXT_PUBLIC_MAPTILER == null) {
 		throw new Error(
@@ -96,18 +114,22 @@ export default function Map({ searchParams }) {
 		)
 	}
 
-	const choice = state.vers?.choice
+	const vers = useMemo(() => state?.slice(-1)[0], [state])
+	const choice = vers && vers.choice
 	const target = useMemo(
 		() => choice && [choice.longitude, choice.latitude],
 		[choice]
 	)
 
+	useOsmRequest(allez, state, setState)
+
+	const osmFeature = vers?.osmFeature
 	const transportStopData = useTransportStopData(osmFeature)
+
 	useEffect(() => {
 		if (!transportStopData || !transportStopData.routesGeojson) return
-		console.log('debug', transportStopData.routesGeojson)
 
-		setTempStyle('dataviz')
+		setTempStyle('transit')
 
 		return () => {
 			console.log('will unset')
@@ -117,15 +139,54 @@ export default function Map({ searchParams }) {
 
 	useSearchLocalTransit(map, searchParams.transports === 'oui', center, zoom)
 
-	useDrawTransport(map, transportStopData, safeStyleKey)
+	const transportsData = useDrawTransportsMap(
+		map,
+		searchParams.transports === 'oui',
+		safeStyleKey,
+		setTempStyle,
+		searchParams.day,
+		bbox
+	)
+
+	const agencyId = searchParams.agence
+	const agency = useMemo(() => {
+		const agencyData =
+			transportsData && transportsData.find((el) => el[0] === agencyId)
+		return agencyData && { id: agencyData[0], ...agencyData[1] }
+	}, [agencyId]) // including transportsData provokes a loop : maplibre bbox updated -> transportsData recreated -> etc
+
+	useEffect(() => {
+		if (!map || !agency) return
+
+		const bbox = agency.bbox
+
+		const mapLibreBBox = [
+			[bbox[2], bbox[1]],
+			[bbox[0], bbox[3]],
+		]
+		map.fitBounds(mapLibreBBox)
+	}, [map, agency])
+
+	useDrawTransport(
+		map,
+		transportStopData,
+		safeStyleKey,
+		transportStopData?.stopId
+	)
+
 	const [gares, setGares] = useState(null)
-	const [clickedGare, clickGare] = useState(null)
+
+	const uic = searchParams.gare
+	const clickedGare = gares && gares.find((g) => g.uic.includes(uic))
+	const clickGare = (uic) => setSearchParams({ gare: uic })
 	const [bikeRoute, setBikeRoute] = useState(null)
 	const [resetItinerary, routes, date] = useItinerary(
 		map,
 		itineraryMode,
 		bikeRouteProfile,
-		searchParams
+		searchParams,
+		state,
+		zoom
 	)
 
 	const itinerary = {
@@ -136,91 +197,29 @@ export default function Map({ searchParams }) {
 		routes,
 		date,
 	}
-	console.log('itinerary', itinerary)
-	const [features, setFeatures] = useState([])
-	console.log('baobab features', features)
 
-	useEffect(() => {
-		if (!map || !category) return
+	const simpleArrayBbox = useMemo(() => {
+		if (!map) return
+		const mapLibreBbox = map.getBounds().toArray(),
+			bbox = [
+				mapLibreBbox[0][1],
+				mapLibreBbox[0][0],
+				mapLibreBbox[1][1],
+				mapLibreBbox[1][0],
+			]
+		return bbox
+	}, [map])
 
-		const fetchCategories = async () => {
-			const mapLibreBbox = map.getBounds().toArray(),
-				bbox = [
-					mapLibreBbox[0][1],
-					mapLibreBbox[0][0],
-					mapLibreBbox[1][1],
-					mapLibreBbox[1][0],
-				].join(',')
-
-			const queries =
-				typeof category.query === 'string' ? [category.query] : category.query
-
-			const queryCore = queries
-				.map((query) => {
-					return `nw${query}(${bbox});`
-				})
-				.join('')
-			// TODO we're missing the "r" in "nwr" for "relations"
-			const overpassRequest = `
-[out:json];
-(
-${queryCore}
-);
-
-out body;
->;
-out skel qt;
-
-`
-
-			console.log('overpass', overpassRequest)
-			const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(
-				overpassRequest
-			)}`
-			console.log(url)
-			const request = await fetch(url)
-			const json = await request.json()
-
-			const nodesOrWays = json.elements.filter((element) => {
-				if (!['way', 'node'].includes(element.type)) return false // TODO relations should be handled
-				return true
-			})
-
-			const waysNodes = nodesOrWays
-				.filter((el) => el.type === 'way')
-				.map((el) => el.nodes)
-				.flat()
-			const interestingElements = nodesOrWays.filter(
-				(el) => !waysNodes.find((id) => id === el.id)
-			)
-			const nodeElements = interestingElements.map((element) => {
-				if (element.type === 'node') return element
-				const nodes = element.nodes.map((id) =>
-						json.elements.find((el) => el.id === id)
-					),
-					polygon = {
-						type: 'Feature',
-						geometry: {
-							type: 'Polygon',
-							coordinates: [nodes.map(({ lat, lon }) => [lon, lat])],
-						},
-					}
-				const center = centerOfMass(polygon)
-
-				const [lon, lat] = center.geometry.coordinates
-
-				return { ...element, lat, lon, polygon }
-			})
-
-			setFeatures(nodeElements)
-		}
-		fetchCategories()
-	}, [category, map])
+	const [features] = useOverpassRequest(simpleArrayBbox, category)
 
 	const onSearchResultClick = (feature) => {
-		resetInput('vers')
+		setState([...state.slice(0, -1), defaultState.vers])
 		setOsmFeature(feature)
 	}
+
+	//TODO this hook should be used easily with some tweaks to draw the borders of
+	// the clicked feature, and an icon
+
 	useDrawQuickSearchFeatures(
 		map,
 		features,
@@ -245,6 +244,7 @@ out skel qt;
 
 		fetchBikeRoute()
 	}, [target, clickedGare, bikeRouteProfile])
+
 	useEffect(() => {
 		async function fetchGares() {
 			const res = await fetch('/gares.json')
@@ -276,20 +276,13 @@ out skel qt;
 	useEffect(() => {
 		if (!map) return
 		if (styleKey === prevStyleKey) return
-		console.log(
-			'onload useEffect style hook mapId ',
-			map._mapId,
-			' from ',
-			styleKey,
-			' to ',
-			prevStyleKey
-		)
 
-		console.log('onload should diff', styleKey !== 'base')
 		// diff seems to fail because of a undefined sprite error showed in the
 		// console
 		// hence this diff: false. We're not loosing much
-		map.setStyle(styleUrl, { diff: false }) //setting styleKey!== 'base' doesn't work, probably because the error comes from switching from base to another ?
+		// UPDATE 26 april 2024, maplibre 4.1.3, seems to be working now, hence
+		// diff: true :)
+		map.setStyle(styleUrl, { diff: true }) //setting styleKey!== 'base' doesn't work, probably because the error comes from switching from base to another ?
 		setTimeout(() => {
 			// Hack : I haven't found a way to know when this style change is done, hence this setTimeout, absolutely not a UI problem but could be too quick ?
 			setSafeStyleKey(styleKey)
@@ -297,8 +290,10 @@ out skel qt;
 	}, [styleUrl, map, styleKey, prevStyleKey])
 
 	const [clickedPoint, resetClickedPoint] = useRightClick(map)
-	console.log('jaune point', clickedPoint)
 
+	// This hook lets the user click on the map to find OSM entities
+	// It also draws a polygon to show the search area for pictures
+	// (not obvious for the user though)
 	useEffect(() => {
 		const onClick = async (e) => {
 			console.log('click event', e)
@@ -340,8 +335,6 @@ out skel qt;
 					(f) => f.source === 'maptiler_planet' && allowedLayerProps(f)
 				)
 
-			console.log('rawFeatures', rawFeatures)
-			console.log('filteredFeatures', features)
 			if (!features.length || !features[0].id) {
 				console.log('no features', features)
 				return
@@ -365,12 +358,6 @@ out skel qt;
 				console.log('Unknown OSM feature type from OpenMapTiles ID')
 				return
 			}
-			console.log('Clicked features from openmaptiles', {
-				features,
-				id,
-				featureType,
-				openMapTilesId,
-			})
 
 			const [element, realFeatureType] = await disambiguateWayRelation(
 				featureType,
@@ -380,18 +367,35 @@ out skel qt;
 
 			if (element) {
 				console.log('reset OSMfeature after click on POI')
-				console.log('will set lieu searchparam after click on POI')
-				setOsmFeature({
-					...element,
-					longitude: e.lngLat.lng,
-					latitude: e.lngLat.lat,
+				const { lng: longitude, lat: latitude } = e.lngLat
+				replaceArrayIndex(
+					state,
+					-1,
+					{
+						osmFeature: {
+							...element,
+							longitude,
+							latitude,
+						},
+					},
+					'merge'
+				)
+
+				// We store longitude and latitude in order to, in some cases, avoid a
+				// subsequent fetch request on link share
+				setSearchParams({
+					allez: buildAllezPart(
+						element.tags?.name || 'sans nom',
+						encodePlace(realFeatureType, id),
+						longitude,
+						latitude
+					),
 				})
-				setSearchParams({ lieu: encodePlace(realFeatureType, id) })
 				console.log('sill set OSMFeature', element)
 				// wait for the searchParam update to proceed
 				const uic = element.tags?.uic_ref,
 					gare = gares && gares.find((g) => g.uic.includes(uic))
-				if (uic && gare) clickGare(gare)
+				if (uic && gare) clickGare(gare.uic)
 			}
 		}
 
@@ -402,133 +406,49 @@ out skel qt;
 			if (!map) return
 			map.off('click', onClick)
 		}
-	}, [map, setState, distanceMode, itineraryMode, gares])
-
-	useEffect(() => {
-		if (!map || !featureType || !featureId) return
-		if (osmFeature && osmFeature.id == featureId) return
-		const request = async () => {
-			console.log('Preparing OSM request ', featureType, featureId)
-			const full = ['way', 'relation'].includes(featureType)
-			const isNode = featureType === 'node'
-			if (!isNode && !full)
-				return console.log(
-					"This OSM feature is neither a node, a relation or a way, we don't know how to handle it"
-				)
-
-			const elements = await osmRequest(featureType, featureId, full)
-			if (!elements.length) return
-			console.log(
-				'OSM elements received',
-				elements,
-				' for ',
-				featureType,
-				featureId
-			)
-
-			const element = elements.find((el) => el.id == featureId)
-
-			const featureCollectionFromOsmNodes = (nodes) => {
-				console.log('yanodes', nodes)
-				const fc = {
-					type: 'FeatureCollection',
-					features: nodes.map((el) => ({
-						type: 'Feature',
-						properties: {},
-						geometry: {
-							type: 'Point',
-							coordinates: [el.lon, el.lat],
-						},
-					})),
-				}
-				console.log('centerofmass', fc, centerOfMass(fc))
-				return fc
-			}
-			const relation = elements.find((el) => el.id == featureId),
-				adminCenter =
-					relation &&
-					relation.members?.find((el) => el.role === 'admin_centre'),
-				adminCenterNode =
-					adminCenter && elements.find((el) => el.id == adminCenter.ref)
-
-			console.log('admincenter', relation, adminCenter, adminCenterNode)
-			const center = adminCenterNode
-				? [adminCenterNode.lon, adminCenterNode.lat]
-				: !full
-				? [element.lon, element.lat]
-				: centerOfMass(
-						featureCollectionFromOsmNodes(
-							elements.filter((el) => el.lat && el.lon)
-						)
-				  ).geometry.coordinates
-
-			console.log('will set OSMfeature after loading it from the URL')
-			setOsmFeature(element)
-			console.log('should fly to', center)
-			if (!choice || choice.osmId !== featureId) {
-				console.log(
-					'will fly to in after OSM download from url query param',
-					center
-				)
-				map.flyTo({
-					center,
-					zoom: 18,
-					pitch: 50, // pitch in degrees
-					bearing: 20, // bearing in degrees
-				})
-			}
-		}
-		request()
-	}, [map, featureType, featureId, choice, osmFeature])
+	}, [map, setState, distanceMode, itineraryMode, gares, clickGare])
 
 	useHoverOnMapFeatures(map)
 
 	useEffect(() => {
-		if (!map || !target) return
+		if (!map || !vers || !osmFeature) return
 
-		const marker = state.vers.marker
-
-		if (!marker) {
-			const destinationType = state.vers.choice.type,
-				tailoredZoom = ['city'].includes(destinationType)
-					? 12
-					: Math.max(15, zoom)
-			console.log(
-				'will fly to in after OSM download from vers marker',
-				target,
-				tailoredZoom,
-				destinationType
-			)
+		const tailoredZoom = //TODO should be defined by the feature's polygon if any
+			/* ['city'].includes(vers.choice.type)
+			? 12
+			: */
+			Math.max(15, zoom)
+		console.log(
+			'blue',
+			'will fly to in after OSM download from vers marker',
+			vers,
+			tailoredZoom
+		)
+		if (osmFeature.polygon) {
+			const bbox = getBbox(osmFeature.polygon)
+			map.fitBounds(bbox)
+			fitBoundsConsideringModal(isMobile, bbox, map)
+		} else
 			map.flyTo({
-				target,
+				center: [vers.longitude, vers.latitude],
 				zoom: tailoredZoom,
 				pitch: 50, // pitch in degrees
 				bearing: 20, // bearing in degrees
 			})
-			const marker = new maplibregl.Marker({
-				color: 'var(--darkerColor)',
-				draggable: true,
-			})
-				.setLngLat(target)
-				.addTo(map)
-
-			setState((state) => ({ ...state, vers: { ...state.vers, marker } }))
-			setLatLngClicked({ lng: target[0], lat: target[1] })
-
-			function onDragEnd() {
-				const { lng, lat } = marker.getLngLat()
-				setState((state) => ({
-					...state,
-					vers: {
-						...state.vers,
-						choice: { latitude: lat, longitude: lng },
-					},
-				}))
-			}
-
-			marker.on('dragend', onDragEnd)
-		}
-	}, [target, map, state.vers, setState])
+	}, [map, vers, osmFeature])
+	/* TODO Transform this to handle the last itinery point if alone (just a POI url),
+	 * but also to add markers to all the steps of the itinerary */
+	/* Should be merged with the creation of route markers
+	useSetTargetMarkerAndZoom(
+		map,
+		target,
+		state.vers.marker,
+		state.vers.choice.type,
+		setState,
+		setLatLngClicked,
+		zoom
+	)
+	*/
 
 	const lesGaresProches =
 		target && gares && sortGares(gares, target).slice(0, 30)
@@ -554,7 +474,7 @@ out skel qt;
 			element.append(image)
 
 			element.addEventListener('click', () => {
-				clickGare(gare.uic === clickedGare?.uic ? null : gare)
+				clickGare(gare.uic === clickedGare?.uic ? null : gare.uic)
 			})
 
 			const marker = new maplibregl.Marker({ element })
@@ -565,7 +485,7 @@ out skel qt;
 		return () => {
 			markers.map((marker) => marker.remove())
 		}
-	}, [lesGaresProches, map, zoom])
+	}, [lesGaresProches, map, zoom, clickGare, clickedGare?.uic])
 
 	return (
 		<MapContainer>
@@ -576,9 +496,7 @@ out skel qt;
 						state,
 						clickedGare,
 						clickGare,
-						setOsmFeature,
 						bikeRoute,
-						osmFeature,
 						latLngClicked,
 						setLatLngClicked,
 						setBikeRouteProfile,
@@ -595,6 +513,13 @@ out skel qt;
 						transportStopData,
 						clickedPoint,
 						resetClickedPoint,
+						transportsData,
+						geolocation,
+						triggerGeolocation,
+						bboxImages,
+						focusImage,
+						vers,
+						osmFeature,
 					}}
 				/>
 			</MapHeader>
@@ -607,9 +532,12 @@ out skel qt;
 					setDistanceMode,
 					map,
 					itinerary,
+					searchParams,
 				}}
 			/>
-			{searchParams.transports && <CenteredCross />}
+			{focusedImage && <FocusedImage {...{ focusedImage, focusImage }} />}
+			{searchParams.transports === 'oui' && <CenteredCross />}
+			{map && <MapComponents map={map} vers={vers} />}
 			<div ref={mapContainerRef} />
 		</MapContainer>
 	)

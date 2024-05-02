@@ -83,7 +83,7 @@ export const computeMotisTrip = async (start, destination, date) => {
 							(trip) => trip.id.line_id === transport.move.line_id
 						)
 
-						const tripId = trip?.id.id.split('_')[1] // `bretagne_` prefix added by Motis it seems, coming from its config.ini file that names schedules with ids
+						const tripId = trip?.id.id.split('_').slice(1).join('_') // `bretagne_` prefix added by Motis it seems, coming from its config.ini file that names schedules with ids
 						const doFetch = async () => {
 							try {
 								if (!tripId) return {}
@@ -112,26 +112,30 @@ export const computeMotisTrip = async (start, destination, date) => {
 						const isTGV = isTGVStop || isBretagneTGV
 						//TODO this should be a configuration file that sets not only main
 						//colors, but gradients, icons (ouigo, inoui, tgv, ter, etc.)
-						const transportType = trip?.id.id.split('_')[0],
+						const sourceGtfs = trip?.id.id.split('_')[0],
 							frenchTrainType = isOUIGO
 								? 'OUIGO'
 								: isTGV
 								? 'TGV'
-								: transportType && { tgv: 'TGV', ter: 'TER' }[transportType]
+								: sourceGtfs
+								? sourceGtfs.includes('horaires-des-lignes-ter-sncf')
+									? 'TER'
+									: sourceGtfs.includes('horaires-des-tgv') && 'TGV'
+								: null
 
 						const customAttributes = {
 							route_color: isTGV
-								? '#b8175e'
+								? trainColors.TGV
 								: isOUIGO
-								? '#0193c9'
+								? trainColors.OUIGO
 								: frenchTrainType === 'TER'
-								? '#034EA2'
-								: route_color && '#' + route_color,
+								? trainColors.TER
+								: handleColor(route_color, '#d3b2ee'),
 							route_text_color: isTGV
 								? '#fff'
 								: isOUIGO
 								? '#fff'
-								: route_text_color && '#' + route_text_color,
+								: handleColor(route_text_color, '#000000'),
 						}
 						const attributes = {
 							...gtfsAttributes,
@@ -150,6 +154,7 @@ export const computeMotisTrip = async (start, destination, date) => {
 						return {
 							...transport,
 							...attributes,
+
 							route_color_darker: attributes.route_color
 								? lightenColor(attributes.route_color, -20)
 								: '#5b099f',
@@ -185,4 +190,18 @@ export const computeMotisTrip = async (start, destination, date) => {
 		console.error('Error fetching motis server', e)
 		return { state: 'error' }
 	}
+}
+
+export const trainColors = {
+	TGV: '#b8175e',
+	OUIGO: '#0193c9',
+	TER: '#034EA2',
+}
+export function handleColor(rawColor, defaultColor) {
+	if (!rawColor) return defaultColor
+	if (rawColor.startsWith('#')) return rawColor
+	if (rawColor.match(/^([0-9A-Fa-f])+$/) && rawColor.length === 6)
+		return '#' + rawColor
+	console.log('Unrecognized route color', rawColor)
+	return defaultColor
 }

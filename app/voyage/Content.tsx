@@ -3,22 +3,27 @@ import { getThumb } from '@/components/wikidata'
 import { useEffect } from 'react'
 import { useLocalStorage } from 'usehooks-ts'
 import BikeRouteRésumé from './BikeRouteRésumé'
+import BookmarkButton from './BookmarkButton'
+import Bookmarks from './Bookmarks'
 import ClickedPoint from './ClickedPoint'
-import { ExplanationWrapper } from './ContentUI'
-import Explanations from './explanations.mdx'
+import { ContentSection, ContentWrapper, ExplanationWrapper } from './ContentUI'
 import { FeatureImage } from './FeatureImage'
 import GareInfo from './GareInfo'
-import Itinerary from './itinerary/Itinerary'
-import { defaultState } from './Map'
 import OsmFeature from './OsmFeature'
+import { PlaceButtonList } from './PlaceButtonsUI'
 import PlaceSearch from './PlaceSearch'
+import QuickBookmarks from './QuickBookmarks'
 import QuickFeatureSearch from './QuickFeatureSearch'
 import SetDestination from './SetDestination'
-import StyleChooser from './styles/StyleChooser'
 import { DialogButton, ModalCloseButton } from './UI'
+import { ZoneImages } from './ZoneImages'
+import Explanations from './explanations.mdx'
+import Itinerary from './itinerary/Itinerary'
+import StyleChooser from './styles/StyleChooser'
+import TransportMap from './transport/TransportMap'
 import useOgImageFetcher from './useOgImageFetcher'
 import useWikidata from './useWikidata'
-import { ZoneImages } from './ZoneImages'
+import ShareButton from './ShareButton'
 
 const getMinimumQuickSearchZoom = (mobile) => (mobile ? 10.5 : 12) // On a small screen, 70 %  of the tiles are not visible, hence this rule
 
@@ -30,9 +35,8 @@ export default function Content({
 	setBikeRouteProfile,
 	bikeRouteProfile,
 	clickGare,
-	osmFeature,
-	setOsmFeature,
 	zoneImages,
+	bboxImages,
 	panoramaxImages,
 	resetZoneImages,
 	state,
@@ -50,6 +54,12 @@ export default function Content({
 	transportStopData,
 	clickedPoint,
 	resetClickedPoint,
+	transportsData,
+	geolocation,
+	focusImage,
+	vers,
+	osmFeature,
+	triggerGeolocation,
 }) {
 	const url = osmFeature?.tags?.website || osmFeature?.tags?.['contact:website']
 	const ogImages = useOgImageFetcher(url),
@@ -67,8 +77,6 @@ export default function Content({
 		if (!introductionRead) setSnap(1)
 	}, [introductionRead, setSnap])
 
-	const choice = state.vers?.choice
-
 	const wikidataPictureUrl = wikidata?.pictureUrl
 	const wikiFeatureImage =
 		!tagImage && // We can't easily detect if tagImage is the same as wiki* image
@@ -82,37 +90,43 @@ export default function Content({
 			? getThumb(osmFeature.tags.wikimedia_commons, 500)
 			: wikidataPictureUrl)
 
-	const hasContent =
-		choice ||
-		osmFeature ||
-		zoneImages ||
-		panoramaxImages ||
-		!clickTipRead ||
-		clickedPoint
+	const recherche = state.findIndex((el) => el == null || el.key == null)
 
-	const hasFeature = choice || osmFeature
-	const hasDestination = choice || osmFeature || clickedPoint,
-		yo = console.log('bleu destination', clickedPoint),
-		destination = hasDestination && {
-			longitude: hasDestination.longitude,
-			latitude: hasDestination.latitude,
-		}
+	const content = [
+		osmFeature,
+		zoneImages,
+		bboxImages,
+		panoramaxImages,
+		!clickTipRead,
+		clickedPoint,
+		searchParams.gare,
+	]
 
-	const showSearch = sideSheet || !hasFeature
+	const hasContent = content.some((el) =>
+		el != null && Array.isArray(el) ? el.length > 0 : el
+	)
+
+	const bookmarkable = clickedPoint || osmFeature // later : choice
+
+	const hasDestination = osmFeature || clickedPoint
+
+	const showSearch = recherche > -1 || !(osmFeature || itinerary.itineraryMode) // at first, on desktop, we kept the search bar considering we have room. But this divergence brings dev complexity
 
 	const minimumQuickSearchZoom = getMinimumQuickSearchZoom(!sideSheet)
 
 	useEffect(() => {
 		if (clickedPoint) {
-			setSnap(1)
+			setSnap(1, 'Content')
 		}
 	}, [clickedPoint, setSnap])
+
 	useEffect(() => {
 		if (!showSearch) return
-		if (zoom > minimumQuickSearchZoom) {
-			setSnap(2)
-		}
-	}, [showSearch, zoom])
+		if (snap === 3)
+			if (zoom > minimumQuickSearchZoom) {
+				setSnap(2, 'Content')
+			}
+	}, [showSearch, zoom, snap])
 
 	if (!introductionRead)
 		return (
@@ -127,22 +141,24 @@ export default function Content({
 		)
 
 	return (
-		<section>
+		<ContentWrapper>
 			{showSearch && (
 				<section>
-					{!choice && (
-						<PlaceSearch
-							{...{
-								state,
-								setState,
-								sideSheet,
-								setSnap,
-								zoom,
-								setSearchParams,
-								searchParams,
-							}}
-						/>
-					)}
+					<PlaceSearch
+						{...{
+							state,
+							setState,
+							sideSheet,
+							setSnap,
+							zoom,
+							setSearchParams,
+							searchParams,
+							autoFocus: recherche != null,
+							stepIndex: recherche,
+							geolocation,
+							triggerGeolocation,
+						}}
+					/>
 					{/* TODO reuse the name overlay and only that ?
 					wikidataPictureUrl && (
 						<motion.div
@@ -169,39 +185,58 @@ export default function Content({
 						<QuickFeatureSearch
 							{...{
 								searchParams,
-								searchInput: state.vers.inputValue,
+								searchInput: vers?.inputValue,
 								setSnap,
 							}}
 						/>
 					)}
+					{searchParams.favoris !== 'oui' && (
+						<QuickBookmarks oldAllez={searchParams.allez} />
+					)}
 				</section>
 			)}
 
+			{searchParams.favoris === 'oui' && <Bookmarks />}
+			{searchParams.transports === 'oui' && (
+				<TransportMap
+					{...{
+						day: searchParams.day,
+						data: transportsData,
+						selectedAgency: searchParams.agence,
+						routesParam: searchParams.routes,
+					}}
+				/>
+			)}
+
 			<Itinerary
-				{...{ itinerary, bikeRouteProfile, setBikeRouteProfile, searchParams }}
+				{...{
+					itinerary,
+					bikeRouteProfile,
+					setBikeRouteProfile,
+					searchParams,
+					setSnap,
+					close: () => {
+						setSearchParams({ allez: undefined })
+						itinerary.setItineraryMode(false)
+					},
+					state,
+				}}
 			/>
 
 			{styleChooser ? (
 				<StyleChooser {...{ setStyleChooser, style }} />
 			) : (
 				hasContent && (
-					<section
-						css={`
-							padding-top: 1.6rem;
-							position: relative;
-						`}
-					>
-						{(choice || osmFeature) && (
+					<ContentSection>
+						{osmFeature && (
 							<ModalCloseButton
 								title="Fermer l'encart point d'intéret"
 								onClick={() => {
 									console.log('will yo')
-									setSearchParams({ lieu: undefined })
-									setTimeout(() => setOsmFeature(null), 300)
+									setSearchParams({ allez: undefined })
 									setLatLngClicked(null)
 									resetZoneImages()
 									console.log('will set default stat')
-									setState(defaultState)
 									openSheet(false)
 								}}
 							/>
@@ -233,14 +268,29 @@ export default function Content({
 							/>
 						)}
 						<ZoneImages
-							zoneImages={zoneImages}
+							zoneImages={bboxImages || zoneImages} // bbox includes zone, usually
 							panoramaxImages={panoramaxImages}
+							focusImage={focusImage}
 						/>
-						{hasDestination && (
-							<SetDestination
-								destination={destination}
-								origin={state.depuis.geolocated}
-							/>
+						{(hasDestination || bookmarkable) && (
+							<PlaceButtonList>
+								{hasDestination && (
+									<SetDestination
+										clickedPoint={clickedPoint}
+										geolocation={geolocation}
+										searchParams={searchParams}
+									/>
+								)}
+								{bookmarkable && (
+									<BookmarkButton
+										clickedPoint={clickedPoint}
+										osmFeature={osmFeature}
+									/>
+								)}
+								{bookmarkable && (
+									<ShareButton {...{ clickedPoint, osmFeature }} />
+								)}
+							</PlaceButtonList>
 						)}
 						{clickedGare ? (
 							<div>
@@ -248,7 +298,7 @@ export default function Content({
 									title="Fermer l'encart gare"
 									onClick={() => {
 										console.log('will yo2')
-										clickGare(null)
+										clickGare(undefined)
 									}}
 								/>
 								{bikeRoute && (
@@ -268,10 +318,18 @@ export default function Content({
 								transportStopData={transportStopData}
 							/>
 						) : clickedPoint ? (
-							<ClickedPoint
-								clickedPoint={clickedPoint}
-								origin={state.depuis.geolocated}
-							/>
+							<>
+								<ModalCloseButton
+									title="Fermer l'encart point d'intéret"
+									onClick={() => {
+										resetClickedPoint()
+									}}
+								/>
+								<ClickedPoint
+									clickedPoint={clickedPoint}
+									geolocation={geolocation}
+								/>
+							</>
 						) : (
 							!clickTipRead && (
 								<div>
@@ -293,9 +351,9 @@ export default function Content({
 								</div>
 							)
 						)}
-					</section>
+					</ContentSection>
 				)
 			)}
-		</section>
+		</ContentWrapper>
 	)
 }

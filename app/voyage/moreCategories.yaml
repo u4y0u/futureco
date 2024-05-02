@@ -35,8 +35,9 @@
 - name: Libanais
   category: Manger et boire
   dictionary:
-    - bain
-    - nage
+    - falafel
+    - houmous
+    - sandwich
   query: '[amenity=restaurant][cuisine~lebanese]'
   icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/food/restaurant.svg
 - name: Fast food
@@ -49,8 +50,23 @@
 
 ################################
 
+- name: Musique
+  dictionary:
+    - concert
+    - festival
+    - scène
+  query:
+    - '[amenity=music_venue]'
+    - '["amenity"~"bar|pub|cafe|restaurant|biergarten|fast_food"][live_music=yes]'
+    - '[amenity=theatre]["theatre:type"=concert_hall]'
+    - '[amenity=nightclub]'
+    - '[amenity=festival_grounds]'
+    - '[amenity=theatre]' # Exemple : salle de concert à Brest https://www.openstreetmap.org/way/42531718#map=18/48.38500/-4.48092
+  icon: https://cdn.jsdelivr.net/gh/mapbox/maki/icons/music.svg
+  category: Loisirs
+
 - name: piscine
-  category: Loisirs & sports
+  category: Sports
   dictionary:
     - bain
     - nage
@@ -58,14 +74,14 @@
   query: '[leisure=sports_centre][sport=swimming]'
   icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/sport/swimming_indoor.svg
 - name: stade
-  category: Loisirs & sports
+  category: Sports
   dictionary:
     - foot
     - athlétisme
   query: '[leisure=pitch]'
   icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/sport/stadium.svg
 - name: gymnase
-  category: Loisirs & sports
+  category: Sports
   dictionary:
     - badminton
     - tennis
@@ -74,21 +90,34 @@
     - hand
   query: '[leisure=sports_centre]'
   icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/sport/gymnasium.svg
+- name: fitness
+  category: Sports
+  dictionary:
+    - exercice
+    - entrainement
+    - muscu
+  query: '[fitness_station]'
+  icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/sport/fitness_station.svg
 
 - name: plage
-  category: Loisirs & sports
+  category: Tourisme
   query: '[natural=beach]'
   icon: https://cdn.jsdelivr.net/gh/mapbox/maki/icons/beach.svg
 
 - name: Jeux pour enfants
-  category: Loisirs & sports
+  category: Loisirs
   dictionary:
     - terrain de jeu
-  query: '[leisure=playground]'
+    - manège
+    - aire de jeu
+  query: 
+    - '[leisure=playground]'
+    - '[landuse=recreation_ground]'
+    - '[attraction=carousel]'
   icon: playground
 
 - name: Surf
-  category: Loisirs & sports
+  category: Sports
   query: '[sport=surfing]'
   icon: surf
 
@@ -100,6 +129,15 @@
     - urgences
     - clinique
   query: '[amenity=hospital]'
+  icon: https://cdn.jsdelivr.net/gh/mapbox/maki/icons/hospital.svg
+- name: clinique
+  category: Santé
+  dictionary:
+    - hôpital
+    - urgences
+  query:
+    - '[amenity=clinic]'
+    - '[healthcare=clinic]'
   icon: https://cdn.jsdelivr.net/gh/mapbox/maki/icons/hospital.svg
 - name: médecin
   category: Santé
@@ -196,6 +234,61 @@
 
 ################################
 
+- name: Oeuvre d'art
+  category: Tourisme
+  dictionary:
+    - statue
+    - sculpture
+    - fresque
+    - mosaïque
+  query: '[tourism=artwork]'
+  icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/tourist/artwork.svg
+- name: Attraction
+  category: Tourisme
+  dictionary:
+    - bâtiment
+    - site
+    - siècle
+    - cathédrale
+    - église
+    - musée
+    - place
+    - pont
+  query: '[tourism=attraction]'
+  icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/tourist/attraction.svg
+
+- name: Information
+  category: Tourisme
+  dictionary:
+    - panneau
+    - information
+    - horaires
+    - plan
+    - direction
+    - nature
+  query: '[tourism=information]'
+  icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/special/information.svg
+- name: Pic-Nic
+  category: Tourisme
+  dictionary:
+    - picnic
+    - table
+    - banc
+    - casse-croute
+  query: '[tourism=picnic_site]'
+  icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/tourist/picnic.svg
+- name: Camping
+  category: Tourisme
+  dictionary:
+    - camping
+    - camping-car
+    - tente
+    - caravane
+  query: '[tourism~"camp_site|caravan_site"]'
+  icon: https://cdn.jsdelivr.net/gh/osmandapp/OsmAnd-resources/icons/svg/accommodation/camping.svg
+
+################################
+
 - name: Vêtements
   category: Commerces
   dictionary:
@@ -241,5 +334,18 @@
 - title: Espace de cotravail (coworking)
   category: Divers
   name: cotravail
-  query: '[amenity=coworking_space]'
+  query:
+    - '[amenity=coworking_space]'
+    - '[office=coworking]'
   icon: coworking
+- title: Cordonnier
+  category: Divers
+  name: Cordonnier
+  dictionary:
+    - cordonnerie
+    - chaussures
+    - resemmelage
+    - clefs
+    - lacets
+  query: '[craft=shoemaker]'
+  icon: shoes

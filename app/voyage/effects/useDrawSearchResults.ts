@@ -6,7 +6,8 @@ export default function useDrawSearchResults(map, state, setOsmFeature) {
 	// Photon search results are not full OSM objectfs, lacking tags, so lacking
 	// opening times for instance
 	const [features, setFeatures] = useState([])
-	const { results } = state.vers
+	const vers = state.slice(-1)[0]
+	const results = vers?.results
 	useEffect(() => {
 		if (!map) return
 
@@ -29,13 +30,10 @@ export default function useDrawSearchResults(map, state, setOsmFeature) {
 		doFetch()
 		return () => {
 			setFeatures([])
-
-			console.log('cerisier reset features')
 		}
 	}, [map, setFeatures, results])
 
 	useDrawQuickSearchFeatures(map, features, false, category, setOsmFeature)
-	console.log('olivier osm features', features)
 }
 
 const category = {

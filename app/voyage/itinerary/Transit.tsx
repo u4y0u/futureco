@@ -1,6 +1,7 @@
 import useSetSearchParams from '@/components/useSetSearchParams'
+import { findContrastedTextColor } from '@/components/utils/colors'
 import Image from 'next/image'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useResizeObserver } from 'usehooks-ts'
 import BestConnection from './BestConnection'
 import DateSelector from './DateSelector'
@@ -12,12 +13,34 @@ export default function Transit({ data, searchParams }) {
 	if (data.state === 'loading') return <TransitLoader />
 	if (data.state === 'error')
 		return <p>Pas de transport en commun trouvé :( </p>
-	const connections = data?.connections
-	if (!connections?.length) return null
+	if (!data?.connections || !data.connections.length) return null
+
+	const connections = data.connections.filter(
+		(connection) => connectionStart(connection) > stamp(data.date)
+	)
+
+	if (connections.length < 1)
+		return (
+			<section>
+				<p>🫣 Pas de transport en commun à cette heure-ci</p>
+				<DateSelector date={data.date} />
+			</section>
+		)
 
 	const firstDate = connectionStart(connections[0]) // We assume Motis orders them by start date, when you start to walk. Could also be intersting to query the first end date
 
 	const bestConnection = findBestConnection(connections)
+
+	const firstStop = Math.min(
+			...connections.map(
+				(connection) => connection.stops[0].departure.schedule_time
+			)
+		),
+		lastStop = Math.max(
+			...connections.map(
+				(connection) => connection.stops.slice(-1)[0].arrival.schedule_time
+			)
+		)
 
 	return (
 		<div
@@ -33,8 +56,16 @@ export default function Transit({ data, searchParams }) {
 			`}
 		>
 			<p>Il existe des transports en commun pour ce trajet. </p>
-			<LateWarning firstDate={firstDate} date={data.date} />
 			<DateSelector date={data.date} />
+			<div
+				css={`
+					p {
+						text-align: right;
+					}
+				`}
+			>
+				<LateWarning firstDate={firstDate} date={data.date} />
+			</div>
 			{bestConnection && <BestConnection bestConnection={bestConnection} />}
 
 			<Connections
@@ -42,8 +73,8 @@ export default function Transit({ data, searchParams }) {
 				date={data.date}
 				selectedConnection={searchParams.choix || 0}
 				connectionsTimeRange={{
-					from: data.interval_begin,
-					to: data.interval_end,
+					from: firstStop,
+					to: lastStop,
 				}}
 			/>
 		</div>
@@ -55,13 +86,17 @@ const LateWarning = ({ date, firstDate }) => {
 
 	const displayDiff = Math.round(diffHours)
 	if (diffHours > 12)
-		return <p>😓 Le prochain trajet est dans plus de {displayDiff} heures</p>
+		return <p>😓 Le prochain trajet part plus de {displayDiff} heures après.</p>
 	if (diffHours > 4)
-		return <p> 😔 Le prochain trajet est dans plus de {displayDiff} heures</p>
+		return (
+			<p> 😔 Le prochain trajet part plus de {displayDiff} heures après.</p>
+		)
 	if (diffHours > 2)
-		return <p> ⏳ Le prochain trajet est dans plus de {displayDiff} heures</p>
+		return (
+			<p> ⏳ Le prochain trajet part plus de {displayDiff} heures après.</p>
+		)
 	if (diffHours > 1)
-		return <p> ⏳ Le prochain trajet est dans plus d'une heure</p>
+		return <p> ⏳ Le prochain trajet part plus d'une heure après.</p>
 	return null
 }
 
@@ -139,7 +174,6 @@ const Connection = ({
 	connectionsTimeRange,
 	selected,
 }) => {
-	console.log('prune', connection)
 	return (
 		<li
 			css={`
@@ -152,7 +186,7 @@ const Connection = ({
 			onClick={() => setSelectedConnection(index)}
 		>
 			<Frise
-				range={[stamp(date), endTime]}
+				connectionsTimeRange={connectionsTimeRange}
 				transports={connection.transports}
 				connection={connection}
 				connectionRange={[
@@ -169,6 +203,8 @@ const connectionStart = (connection) => connection.stops[0].departure.time
 const connectionEnd = (connection) => connection.stops.slice(-1)[0].arrival.time
 
 export const humanDuration = (seconds) => {
+	console.log('orange secondes', seconds)
+
 	if (seconds < 60) {
 		const text = `${seconds} secondes`
 
@@ -201,15 +237,16 @@ export const humanDuration = (seconds) => {
 	return { interval: `toutes les ${text}`, single: text }
 }
 const Frise = ({
-	range: [rangeFrom, rangeTo],
+	connectionsTimeRange,
 	connection,
 	connectionRange: [from, to],
 	transports,
 }) => {
-	const length = rangeTo - rangeFrom
+	const { from: absoluteFrom, to: absoluteTo } = connectionsTimeRange
+	const length = absoluteTo - absoluteFrom
 
 	const barWidth = ((to - from) / length) * 100,
-		left = ((from - rangeFrom) / length) * 100
+		left = ((from - absoluteFrom) / length) * 100
 
 	return (
 		<div
@@ -228,7 +265,7 @@ const Frise = ({
 			<div
 				css={`
 					position: absolute;
-					left: ${left}%;
+					left: calc(1rem + ${left}%);
 					width: ${barWidth}%;
 					top: 50%;
 					transform: translateY(-50%);
@@ -276,20 +313,51 @@ const Frise = ({
 		</div>
 	)
 }
+
+function isOverflowX(element) {
+	if (!element) return null
+	return (
+		element.scrollWidth != Math.max(element.offsetWidth, element.clientWidth)
+	)
+}
 export const Transport = ({ transport }) => {
-	const background = transport.route_color || 'rgb(211, 178, 238)'
+	const [constraint, setConstraint] = useState('none')
+	const background = transport.route_color,
+		color = transport.route_text_color
+
+	const textColor =
+		(color && (color !== background ? color : null)) ||
+		findContrastedTextColor(background, true)
 
 	const ref = useRef<HTMLDivElement>(null)
 	const { width = 0, height = 0 } = useResizeObserver({
 		ref,
 		box: 'border-box',
 	})
+	const isOverflow = isOverflowX(ref.current)
 
-	const displayImage = width > 30
+	const displayImage = constraint === 'none'
+	const name = transport.shortName?.toUpperCase().replace(/TRAM\s?/g, 'T')
+	console.log('orange', transport, name)
+
+	useEffect(() => {
+		if (isOverflow)
+			setConstraint(constraint === 'none' ? 'noImage' : 'smallest')
+	}, [setConstraint, isOverflow, constraint])
+
 	return (
 		<span
 			ref={ref}
 			css={`
+			${
+				constraint == 'smallest' &&
+				`
+		  strong {
+			  border: 2px solid white;
+				z-index: 1
+		  }
+			`
+			}
 				display: inline-block;
 				width: 100%;
 				background: ${background};
@@ -306,13 +374,12 @@ export const Transport = ({ transport }) => {
 ${
 	transport.frenchTrainType
 		? `filter: brightness(0) invert(1);`
-		: transport.route_text_color?.toLowerCase().includes('ffffff') &&
-		  `filter: invert(1)`
+		: isWhiteColor(textColor) && `filter: invert(1)`
 }
 			`}
 			title={`${humanDuration(transport.seconds).single} de ${
 				transport.frenchTrainType || transport.move.name || 'marche'
-			}`}
+			} ${transport.route_long_name || ''}`}
 		>
 			{transport.move.name ? (
 				<span
@@ -330,15 +397,13 @@ ${
 					<strong
 						css={`
 							background: ${background};
-							color: ${transport.route_text_color
-								? transport.route_text_color
-								: 'white'};
+							color: ${textColor};
 							line-height: 1.2rem;
 							border-radius: 0.4rem;
-							text-transform: uppercase;
+							white-space: nowrap;
 						`}
 					>
-						{transport.frenchTrainType || transport.shortName}
+						{transport.frenchTrainType || name}
 					</strong>
 				</span>
 			) : transport.move_type === 'Walk' ? (
@@ -363,7 +428,26 @@ ${
 //TODO complete with spec possibilities https://gtfs.org/fr/schedule/reference/#routestxt
 const transportIcon = (frenchTrainType, routeType) => {
 	if (frenchTrainType) return `/transit/${frenchTrainType.toLowerCase()}.svg`
-	if (!routeType) return '/icons/bus.svg'
-	const found = { 0: '/icons/bus.svg', 1: '/icons/subway.svg' }[routeType]
+	const found = {
+		0: '/icons/tram.svg',
+		1: '/icons/metro.svg',
+		2: '/icons/train.svg',
+		3: '/icons/bus.svg',
+		4: '/icons/ferry.svg',
+		5: '/icons/tram.svg', // so rare
+		6: '/icons/téléphérique.svg',
+		7: '/icons/funiculaire.svg',
+		11: '/icons/trolleybus.svg',
+		12: '/icons/train.svg', // how to represent this ?
+	}[routeType]
 	return found || '/icons/bus.svg'
+}
+
+const isWhiteColor = (unsafeColor) => {
+	if (!unsafeColor) return false
+
+	if (unsafeColor.toLowerCase().includes('ffffff')) return true
+
+	console.log('orange', unsafeColor)
+	if (unsafeColor === 'white') return true
 }

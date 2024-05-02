@@ -1,5 +1,8 @@
 import railStyle from './railStyle'
+import cyclOsm from './cyclOsmStyle'
 import voyageStyle from './voyage'
+import transit from './transit'
+import testStreetComplete from './test-street-complete'
 
 const key = process.env.NEXT_PUBLIC_MAPTILER
 
@@ -29,20 +32,28 @@ export const styles = {
 		hasTerrain: true,
 	},
 	ign: {
-		url: 'https://wxs.ign.fr/static/vectorTiles/styles/PLAN.IGN/essentiels/standard.json',
+		url: 'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json',
 		name: 'Plan IGN',
 		image: 'IGN.svg',
 		imageAlt: "Logo de l'IGN",
 		attribution: '© IGN',
 	},
+	cycling: { url: cyclOsm(key), name: 'Carte cyclable', emoji: '🚲️' },
 	train: {
 		url: railStyle(key),
 		name: 'Carte des rails',
 		emoji: '🛤️',
 	},
-	dataviz: {
-		url: maptilerUrl('dataviz'),
+	transit: {
+		// Taken from MapTiler's dataviz style
+		url: transit(key),
 		name: 'Fond léger',
 		emoji: '⬜️',
+	},
+	streetComplete: {
+		// Taken from MapTiler's dataviz style
+		url: testStreetComplete,
+		name: 'Street Complete',
+		emoji: '🧪',
 	},
 }

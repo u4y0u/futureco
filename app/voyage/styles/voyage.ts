@@ -1,3 +1,9 @@
+const nameExpression = [
+	['get', 'name:fr'], // cartes.app est une application française
+	['get', 'name:en'], // we estimate that e.g. arab place names that don't have a french translation will be way more readable as english fro French people. See e.g. /?lieu=n1091272140#18.99/33.5130054/36.3066407
+
+	['get', 'name'],
+]
 export default function voyageStyle(key) {
 	return {
 		version: 8,
@@ -22,8 +28,8 @@ export default function voyageStyle(key) {
 				paint: {
 					'background-color': {
 						stops: [
-							[6, 'hsl(47,79%,94%)'],
-							[14, 'hsl(42,49%,93%)'],
+							[6, '#dfecbe'],
+							[14, '#dfecbe'],
 						],
 					},
 				},
@@ -484,8 +490,8 @@ export default function voyageStyle(key) {
 				paint: {
 					'line-color': {
 						stops: [
-							[10, 'hsl(205,61%,63%)'],
-							[16, 'hsl(205,67%,47%)'],
+							[10, '#9cb0e3'],
+							[16, '#c2cff0'],
 						],
 					},
 					'line-width': 1.1,
@@ -1026,7 +1032,7 @@ export default function voyageStyle(key) {
 					visibility: 'visible',
 				},
 				paint: {
-					'line-color': '#C6C2B3',
+					'line-color': 'Silver',
 					'line-width': [
 						'interpolate',
 						['linear', 2],
@@ -1067,7 +1073,7 @@ export default function voyageStyle(key) {
 					visibility: 'visible',
 				},
 				paint: {
-					'line-color': 'hsl(8, 0%, 87%)',
+					'line-color': 'Silver',
 					'line-width': [
 						'interpolate',
 						['linear', 2],
@@ -1384,7 +1390,7 @@ export default function voyageStyle(key) {
 					visibility: 'visible',
 				},
 				paint: {
-					'line-color': '#E6E1D1',
+					'line-color': 'LightGray',
 					'line-width': [
 						'interpolate',
 						['linear', 2],
@@ -1422,7 +1428,7 @@ export default function voyageStyle(key) {
 					visibility: 'visible',
 				},
 				paint: {
-					'line-color': 'hsl(0, 0%, 92%)',
+					'line-color': 'LightGray',
 					'line-width': [
 						'interpolate',
 						['linear', 2],
@@ -1784,21 +1790,21 @@ export default function voyageStyle(key) {
 				maxzoom: 22,
 				layout: { visibility: 'visible' },
 				paint: {
-					'line-color': 'hsl(0, 0%, 70%)',
+					'line-color': 'hsl(0, 0%, 40%)',
 					'line-width': [
 						'interpolate',
 						['linear', 1],
 						['zoom'],
 						3,
-						0.75,
+						0.5,
 						4,
-						0.8,
+						0.6,
 						11,
-						['case', ['<=', ['get', 'admin_level'], 6], 1.75, 1.5],
+						['case', ['<=', ['get', 'admin_level'], 6], 0.8, 0.75],
 						18,
-						['case', ['<=', ['get', 'admin_level'], 6], 3, 2],
+						['case', ['<=', ['get', 'admin_level'], 6], 1.5, 1],
 					],
-					'line-dasharray': [2, 1],
+					'line-dasharray': [1, 1],
 				},
 				filter: [
 					'all',
@@ -1881,7 +1887,7 @@ export default function voyageStyle(key) {
 							[22, 20],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'symbol-spacing': 400,
 					'text-max-width': 5,
@@ -1923,18 +1929,13 @@ export default function voyageStyle(key) {
 						14,
 						['match', ['get', 'class'], ['lake'], 14, ['sea'], 20, 26],
 					],
-					'text-field': '{name}',
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-max-width': 5,
 					'symbol-placement': 'point',
 				},
 				paint: {
-					'text-color': {
-						stops: [
-							[1, 'hsl(203,54%,54%)'],
-							[4, 'hsl(203,72%,39%)'],
-						],
-					},
+					'text-color': 'white',
 					'text-opacity': [
 						'step',
 						['zoom'],
@@ -1945,12 +1946,7 @@ export default function voyageStyle(key) {
 						1,
 					],
 					'text-halo-blur': 1,
-					'text-halo-color': {
-						stops: [
-							[1, 'hsla(196, 72%, 80%, 0.05)'],
-							[3, 'hsla(200, 100%, 88%, 0.75)'],
-						],
-					},
+					'text-halo-color': '#35a',
 					'text-halo-width': 1,
 				},
 				metadata: {},
@@ -1976,15 +1972,15 @@ export default function voyageStyle(key) {
 							[22, 20],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-max-width': 5,
 					'symbol-placement': 'line',
 					'text-letter-spacing': 0.1,
 				},
 				paint: {
-					'text-color': 'hsl(205,84%,39%)',
-					'text-halo-color': 'hsla(0, 100%, 100%, 0.45)',
+					'text-color': 'white',
+					'text-halo-color': '#3051a4',
 					'text-halo-width': 1.5,
 				},
 				metadata: {},
@@ -2026,7 +2022,7 @@ export default function voyageStyle(key) {
 							[22, 14],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'center',
 					'text-offset': [0.8, 0.8],
@@ -2056,19 +2052,18 @@ export default function voyageStyle(key) {
 							[15, 12],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'center',
 					'text-offset': [0.8, 0.8],
 					'symbol-placement': 'line',
 				},
 				paint: {
-					'text-color': 'hsl(205,84%,39%)',
+					'text-color': 'white',
 					'text-halo-blur': 0.5,
-					'text-halo-color': 'hsla(0, 0%, 100%, 0.15)',
 					'text-halo-width': 1,
 				},
-				filter: ['all', ['==', 'subclass', 'ferry']],
+				filter: ['all', ['==', 'class', 'ferry']],
 			},
 			{
 				id: 'Oneway',
@@ -2126,7 +2121,7 @@ export default function voyageStyle(key) {
 							[22, 15],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'center',
 					'text-offset': [0, 0.15],
@@ -2149,7 +2144,7 @@ export default function voyageStyle(key) {
 				metadata: {},
 				filter: [
 					'all',
-					['!in', 'subclass', 'ferry', 'gondola', 'cable_car'],
+					['!in', 'class', 'ferry', 'gondola', 'cable_car'],
 					['!in', 'class', 'service'],
 				],
 			},
@@ -2296,7 +2291,7 @@ export default function voyageStyle(key) {
 						],
 					},
 					'icon-image': 'parking',
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'top',
 					'text-offset': [0, 0.8],
@@ -2333,7 +2328,7 @@ export default function voyageStyle(key) {
 						],
 					},
 					'icon-image': '{class}',
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'top',
 					'text-offset': [0, 0.8],
@@ -2370,7 +2365,7 @@ export default function voyageStyle(key) {
 						],
 					},
 					'icon-image': '{subclass}',
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'top',
 					'text-offset': [0, 0.8],
@@ -2416,7 +2411,7 @@ export default function voyageStyle(key) {
 						['image', ['get', 'class']],
 						['image', 'dot'],
 					],
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'top',
 					'text-offset': [0, 0.8],
@@ -2618,7 +2613,7 @@ export default function voyageStyle(key) {
 							16,
 						],
 					],
-					'text-field': '{name}',
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'bottom',
 					'text-offset': [0, 0],
@@ -2642,7 +2637,7 @@ export default function voyageStyle(key) {
 					],
 				},
 				paint: {
-					'text-color': 'hsl(0,0%,25%)',
+					'text-color': 'hsl(0,0%,15%)',
 					'icon-opacity': 1,
 					'text-opacity': [
 						'step',
@@ -2705,7 +2700,7 @@ export default function voyageStyle(key) {
 						'tramway',
 						'',
 					],
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'icon-anchor': 'center',
 					'text-anchor': 'top',
@@ -2806,7 +2801,7 @@ export default function voyageStyle(key) {
 						stops: [
 							[8, ' '],
 							[9, '{iata}'],
-							[12, '{name}'],
+							[12, '{name:fr} \n {name:en}'], // dunno why I can't use the coalesce + nameExpression like anywhere else, hence this hack
 						],
 					},
 					visibility: 'visible',
@@ -2883,7 +2878,7 @@ export default function voyageStyle(key) {
 							[6, 10],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-padding': 2,
 					'text-max-width': 8,
@@ -2943,7 +2938,7 @@ export default function voyageStyle(key) {
 							[12, ' '],
 						],
 					},
-					'text-field': ['coalesce', ['get', 'name'], ['get', 'name:en']],
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'bottom',
 					'text-offset': [0, 0],
@@ -3004,7 +2999,7 @@ export default function voyageStyle(key) {
 						['case', ['<=', ['get', 'rank'], 4], 32, 26],
 					],
 					'icon-image': ['step', ['zoom'], 'circle-stroke', 13, ''],
-					'text-field': '{name}',
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-anchor': 'bottom',
 					'text-offset': [0, -0.1],
@@ -3013,7 +3008,7 @@ export default function voyageStyle(key) {
 					'icon-allow-overlap': true,
 				},
 				paint: {
-					'text-color': 'hsl(0,0%,20%)',
+					'text-color': 'hsl(0,0%,10%)',
 					'text-halo-blur': 0.5,
 					'text-halo-color': 'hsl(0,0%,100%)',
 					'text-halo-width': 0.8,
@@ -3043,7 +3038,7 @@ export default function voyageStyle(key) {
 						8,
 						['case', ['>', ['get', 'rank'], 2], 19, 23],
 					],
-					'text-field': '{name}',
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-padding': 1,
 					'text-max-width': {
@@ -3090,7 +3085,7 @@ export default function voyageStyle(key) {
 							[2, 13],
 						],
 					},
-					'text-field': '{name}',
+					'text-field': ['coalesce', ...nameExpression],
 					visibility: 'visible',
 					'text-justify': 'center',
 					'text-transform': 'uppercase',

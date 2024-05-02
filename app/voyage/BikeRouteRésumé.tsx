@@ -1,6 +1,7 @@
 import CircularIcon from '@/components/CircularIcon'
 import css from '@/components/css/convertToJs'
 import { useState } from 'react'
+import LightsWarning from './LightsWarning'
 import ProfileChooser from './ProfileChooser'
 
 export default function BikeRouteRésumé({
@@ -23,7 +24,9 @@ export default function BikeRouteRésumé({
 				padding: 0.6rem;
 				color: var(--darkestColor);
 				line-height: 1.4rem;
-				border: 4px solid var(--darkColor);
+				border: ${mode === 'cycling'
+					? '4px solid var(--lightColor)'
+					: '4px dotted #8f53c1'};
 				margin-top: 1.4rem;
 				border-radius: 0.5rem;
 				@media (min-width: 1200px) {
@@ -50,17 +53,13 @@ export default function BikeRouteRésumé({
 				<CircularIcon
 					src={'/bike.svg'}
 					alt="Icône d'un vélo"
-					background={
-						mode !== 'cycling' ? 'var(--lightColor)' : 'var(--darkColor)'
-					}
+					background={mode !== 'cycling' ? 'lightgrey' : 'var(--lightColor)'}
 					onClick={() => setMode('cycling')}
 				/>
 				<CircularIcon
 					src={'/walking.svg'}
 					alt="Icône d'une personne qui marche"
-					background={
-						mode === 'cycling' ? 'var(--lightColor)' : 'var(--darkColor)'
-					}
+					background={mode === 'walking' ? '#8f53c1' : 'lightgrey'}
 					onClick={() => setMode('walking')}
 				/>
 			</div>
@@ -103,9 +102,14 @@ const ModeContent = ({ mode, data, setBikeRouteProfile, bikeRouteProfile }) => {
 				</strong>{' '}
 				pour{' '}
 				<strong
+					title={`La pente sera de ${(
+						(déniveléCumulé / distance) *
+						100
+					).toFixed(1)}%`}
 					style={css(
 						`background: ${deniveléColor(
-							déniveléCumulé
+							déniveléCumulé,
+							distance
 						)}; padding: 0 .2rem; border-radius: 0.3rem;`
 					)}
 				>
@@ -121,15 +125,40 @@ const ModeContent = ({ mode, data, setBikeRouteProfile, bikeRouteProfile }) => {
 					}}
 				/>
 			)}
+			{mode === 'cycling' && feature.geometry.coordinates[0] && (
+				<LightsWarning
+					longitude={feature.geometry.coordinates[0][0]}
+					latitude={feature.geometry.coordinates[0][1]}
+				/>
+			)}
 		</div>
 	)
 }
 
-const deniveléColor = (height) =>
-	height > 600
-		? '#f98080'
-		: height > 300
-		? '#f7b63f'
-		: height > 150
-		? '#f7f769'
-		: '#a0dba0'
+const deniveléColors = [
+	'Crimson',
+	'Salmon',
+	'#f7b63f',
+	'Moccasin',
+	'LightGreen',
+]
+// TODO this function should be made more complex.
+// E.g. tell the user if the ride is mostly flat but has a very hard drop at one
+// point
+// for sport, see https://fr.wikipedia.org/wiki/Coefficient_de_difficult%C3%A9
+const deniveléColor = (height, distance) => {
+	const percentage = (height / distance) * 100
+	const index =
+		percentage > 5
+			? 0
+			: percentage > 3
+			? 1
+			: percentage > 2
+			? 2
+			: percentage > 1
+			? 3
+			: 4
+
+	const difficulty = Math.round(index)
+	return deniveléColors[difficulty]
+}

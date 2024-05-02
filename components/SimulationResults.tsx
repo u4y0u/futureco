@@ -10,9 +10,11 @@ const SimulationResults = ({
 	rule,
 	opacity,
 	hideResults,
+	SubTitle,
 }) => {
 	const { dottedName, title, nodeValue } = evaluation
 	const { icônes, formule } = rule
+
 	return (
 		<div
 			key={dottedName}
@@ -44,6 +46,7 @@ const SimulationResults = ({
 					justify-content: center;
 					flex-wrap: wrap;
 					width: 100%;
+					padding-bottom: 0.6rem;
 				`}
 			>
 				<div css="width: 100%; img { font-size: 150%}}">
@@ -55,12 +58,13 @@ const SimulationResults = ({
 						font-size: 120%;
 						color: var(--darkerColor);
 						margin: 0;
-						margin-bottom: 1rem;
+						margin-bottom: 0.4rem;
 						line-height: 2rem;
 					`}
 				>
 					{title}
 				</h1>
+				{SubTitle && <SubTitle />}
 			</div>
 			<>
 				<div
